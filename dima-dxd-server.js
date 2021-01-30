@@ -196,10 +196,4 @@ dxdRoutes.route('/Peerage/:tenCo').get(function(req, res) {
   })
 
 
-
-
-
-
-
-
 })
