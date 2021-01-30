@@ -13,7 +13,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use('/dxd', dxdRoutes);		        //bảo Router chỉ nhận câu hỏi bắt đầu ‘/hanhDong
 
-
+let peopleModel = require('./people.model');
 let peerageModel = require('./peerage.model');
 
 mongoose.connect('mongodb+srv://dima:dimaduc@cluster0.ufom0.mongodb.net/dima-dxd-db?retryWrites=true&w=majority', { useNewUrlParser: true })
@@ -25,9 +25,7 @@ const connection = mongoose.connection; //  <=> giữa server và DB
 // hiện ra, thông báo là nói chuyện đc rồi
 connection.once('open', function() {
   console.log("Đã nói chuyện với MongoDB");
-  
 })
-
 
 // server bắt đầu nghe và đợi câu hỏi ở phòng PORT 5100
 app.listen(PORT, function() {		          //chạy Web Server ở địa chỉ phòng này
@@ -35,127 +33,155 @@ app.listen(PORT, function() {		          //chạy Web Server ở địa chỉ ph
 });
 
 
-dxdRoutes.route('/Peerage/').get(function(req, res) {
-
-  if(req.query.tenCo){
-    console.log("Đã nhận câu hỏi của " + req.query.tenCo + "'s Peerage")
-  }
-  else{
-    peerageModel.find({}, function(err, ketQuaTimPeerage){
-      if (err) {
-        console.log(err);
-      }
-      else {
-        console.log('đã tìm thấy tất cả bàn cờ là: ', ketQuaTimPeerage);
-        res.json(ketQuaTimPeerage)
-        // res.json('đây là Peerage')
-      }
-
-      console.log("Đã nhận câu hỏi Peerage")
-    
-    
-    })
+dxdRoutes.route('/Peerage/xoa/:tenBanCo').get(function(req, res) {
+  let id = req.query.idMuonXoa;
+  let tenCoCuaAiDo = req.params.tenBanCo;
+  console.log('Đã nhận câu hỏi: Browser muốn xóa là: ' + id + ', Sau đó tìm danh sách mới liên quan đến ' + tenCoCuaAiDo);
 
 
+  // dxdRoutes.route('/Peerage/xoa').get(function(req, res) {
+  //   let id = req.query.idMuonXoa;
+  //   let tenCoCuaAiDo = req.query.tenCoCuaAiDo;
+  //   console.log('Đã nhận câu hỏi: Browser muốn xóa là: ' + id + ', Sau đó tìm danh sách mới liên quan đến ' + tenCoCuaAiDo);
 
-  }
-
+  peopleModel.findByIdAndDelete(id, function (err) {
+    if (err) {
+      console.log(err);
+    }
+    else {
+      console.log('đã xóa ' + id);
+      
+      var ketQua = {'King': {}, 'Queen': {}, 'Bishop': [], 'Knight': [], 'Rook': [], 'Pawn': []}
+      
+      peopleModel.find({$text: {$search: tenCoCuaAiDo}}, function(err, timCoCuaAiDo){
+        if (err) {
+          console.log(err);
+        }
+        else{          
+          // console.log('đã tìm thấy bàn cờ của 1 người là: ', timCoCuaAiDo);
+          for(var i = 0;  i < timCoCuaAiDo.length; i++){
+            if(timCoCuaAiDo[i].peerage.includes(tenCoCuaAiDo + "'s King")){
+              ketQua['King'] = timCoCuaAiDo[i]
+            }
+            else if(timCoCuaAiDo[i].peerage.includes(tenCoCuaAiDo + "'s Queen")){
+              ketQua['Queen'] = timCoCuaAiDo[i]
+            }
+            else if(timCoCuaAiDo[i].peerage.includes(tenCoCuaAiDo + "'s Bishop")){
+              ketQua['Bishop'].push(timCoCuaAiDo[i])
+              console.log(timCoCuaAiDo[i].image)
+            }
+            else if(timCoCuaAiDo[i].peerage.includes(tenCoCuaAiDo + "'s Knight")){
+              ketQua['Knight'].push(timCoCuaAiDo[i])
+            }
+            else if(timCoCuaAiDo[i].peerage.includes(tenCoCuaAiDo + "'s Rook")){
+              ketQua['Rook'].push(timCoCuaAiDo[i])
+            }
+            else if(timCoCuaAiDo[i].peerage.includes(tenCoCuaAiDo + "'s Pawn x4") || timCoCuaAiDo[i].peerage.includes(tenCoCuaAiDo + "'s Pawn")){
+              ketQua['Pawn'].push(timCoCuaAiDo[i])
+            }
+            else{
+              console.log('Không cho ' + timCoCuaAiDo[i].name + ' cho vào')
+            }
+          }
+          res.json(ketQua)
+          console.log('Đã gửi sau khi xóa '+ketQua)
+        }
+      })
+    }
+  });
 })
 
+dxdRoutes.route('/Peerage/add').post(function(req, res) {
+  let peerageMoi = new peopleModel(req.body);
+  
+  peerageMoi.save()
+            .then(peerageMoi => {
+              // console.log('đã cho thêm tên peerage mới: ' + peerageMoi.name);
+                res.json('đã cho thêm ' + peerageMoi.name + ' trong bàn cờ của ' + peerageMoi.peerage)
+            })
+
+  //req.body  Thông tin
+  console.log(
+    
+    'đã nhận câu hỏi thêm mới tên là: ' 
+    +'\n'+
+    'Name: ' + req.body.name
+    +'\n'+
+    'Gender: ' + req.body.gender
+    +'\n'+
+    'Love: ' + req.body.love
+    +'\n'+
+    'Original: ' + req.body.original
+    +'\n'+
+    'Power :' + req.body.power
+    +'\n'+
+    'Peerage: ' + req.body.peerage
+    +'\n'+
+    'Image: ' + req.body.image
+  );
+});
+
+dxdRoutes.route('/Peerage/').get(function(req, res) {
+ // res.json('Tất cả bàn cờ')
+  peerageModel.find({}, function(err, ketQuaTimPeerage){
+    if (err) {
+      console.log(err);
+    }
+    else {
+      // console.log(ketQuaTimPeerage);
+      res.json(ketQuaTimPeerage)
+    }
+  })
 
 
+  // peopleModel.find({}, function(err, ketQuaTimPeople){
+    // if (err) {
+    //   console.log(err);
+    // }
+    // else {
+    //   // console.log('đã tìm thấy tất cả bàn cờ là: ', ketQuaTimPeople);
+    // res.json(ketQuaTimPeople)
+    //   // res.json('đây là Peerage')
+    // }
+    // console.log("Đã nhận câu hỏi Peerage")
+  // })
+})
 
 dxdRoutes.route('/Peerage/:tenCo').get(function(req, res) {
-  console.log("Đã nhận câu hỏi của " + req.params.tenCo + "'s Peerage")
-
-  // peerageModel.find({$or:[{peerage: "Sona's King"}]}, function(err, timCoCuaAiDo){
-  //   if (err) {
-  //     console.log(err);
-  //   }
-  //   else {
-  //     console.log('đã tìm thấy ', timCoCuaAiDo);
-  //     // res.json(timCoCuaAiDo)
-      
-  //     var ketQua = {}
-  //     if(req.params.tenCo==='Sona'){
-  //       console.log('Sona')
-  //       // req.params.tenCo == 'Sona'
-  //       ketQua['King'] = timCoCuaAiDo[3]
-  //       res.json(ketQua)
-  //     }
-  //     else{
-  //       console.log('null')
-  //       res.json(ketQua)
-  //     }
-      
-  //     console.log('đã gửi kết quả về bàn cờ Sona')
-  //   }
-
-  // })
 
   var ketQua = {'King': {}, 'Queen': {}, 'Bishop': [], 'Knight': [], 'Rook': [], 'Pawn': []}
 
   let canTim = ''
-  canTim = req.params.tenCo;
+  let tenCo = req.params.tenCo
+  canTim = tenCo;
 
-  peerageModel.find({$text: { $search: req.params.tenCo}}, function(err, timCoCuaAiDo){
+  console.log("Đã nhận câu hỏi của " + tenCo + "'s Peerage")
+
+  peopleModel.find({$text: { $search: tenCo}}, function(err, timCoCuaAiDo){
     if (err) {
       console.log(err);
     }
     else{
-      console.log('đã tìm thấy bàn cờ của 1 người là: ', timCoCuaAiDo);
-      // req.params.tenCo == 'Rias'
-
-//kiem tra nguoi dau tien trong Arrray Danh Sach
-     
-      //Neu ban co cua nguoi nay (dau tien) co chu King => TRUE   -----FALSE
-      // if(...){
-        //thi cho vao King cua Object KetQua to                         BO QUA
-      // }
-        
-      // }else if
-      //
-      // }
-      
-      // nếu peerage có Issei's King là cờ vua của Issei
-      // nếu peerage có Rias's Pawn là cờ vua của Rias
-      // nếu peerage có Sona's Pawn là cờ vua của Sona
-
-
-
-
-
-      //kiem tra nguoi thu 2 trong Arrray Danh Sach
-     
-      //Neu ban co cua nguoi nay (thu 2) co chu King =>          TRUE
-      // if(...){
-      //   //thi cho vao King cua Object KetQua to                 LAM VIEC NAY
-      // }
-      // else{
-
-      // }
-
-
-
+      // console.log('đã tìm thấy bàn cờ của 1 người là: ', timCoCuaAiDo);
       
       for(var i = 0;  i < timCoCuaAiDo.length; i++){
-        if(timCoCuaAiDo[i].peerage.includes(req.params.tenCo + "'s King")){
+        if(timCoCuaAiDo[i].peerage.includes(tenCo + "'s King")){
           ketQua['King'] = timCoCuaAiDo[i]
         }
-        else if(timCoCuaAiDo[i].peerage.includes(req.params.tenCo + "'s Queen")){
+        else if(timCoCuaAiDo[i].peerage.includes(tenCo + "'s Queen")){
           ketQua['Queen'] = timCoCuaAiDo[i]
         }
-        else if(timCoCuaAiDo[i].peerage.includes(req.params.tenCo + "'s Bishop")){
+        else if(timCoCuaAiDo[i].peerage.includes(tenCo + "'s Bishop")){
           ketQua['Bishop'].push(timCoCuaAiDo[i])
-          console.log(timCoCuaAiDo[i].name)
+          console.log(timCoCuaAiDo[i].image)
         }
-        else if(timCoCuaAiDo[i].peerage.includes(req.params.tenCo + "'s Knight")){
+        else if(timCoCuaAiDo[i].peerage.includes(tenCo + "'s Knight")){
           ketQua['Knight'].push(timCoCuaAiDo[i])
         }
-        else if(timCoCuaAiDo[i].peerage.includes(req.params.tenCo + "'s Rook")){
+        else if(timCoCuaAiDo[i].peerage.includes(tenCo + "'s Rook")){
           ketQua['Rook'].push(timCoCuaAiDo[i])
         }
-        else if(timCoCuaAiDo[i].peerage.includes(req.params.tenCo + "'s Pawn x4") || timCoCuaAiDo[i].peerage.includes(req.params.tenCo + "'s Pawn")){
+        else if(timCoCuaAiDo[i].peerage.includes(tenCo + "'s Pawn x4") || timCoCuaAiDo[i].peerage.includes(tenCo + "'s Pawn")){
           ketQua['Pawn'].push(timCoCuaAiDo[i])
         }
         else{
@@ -165,10 +191,7 @@ dxdRoutes.route('/Peerage/:tenCo').get(function(req, res) {
 
 
 
-
-
       res.json(ketQua)
-      // console.log('đã gửi kết quả về bàn cờ Rias')
     }
   })
 
@@ -176,99 +199,7 @@ dxdRoutes.route('/Peerage/:tenCo').get(function(req, res) {
 
 
 
-  // if(req.params.tenCo === 'Rias'){
-  //   peerageModel.find({$or:[{peerage: "Rias's King"}, {peerage: "Rias's Queen"}, {peerage: "Rias's Pawn x4"}]}, function(err, timCoCuaAiDo){
-  //     if (err) {
-  //       console.log(err);
-  //     }
-  //     else{
-  //       console.log('đã tìm thấy ', timCoCuaAiDo);
-  //       console.log('Rias')
-  //       // req.params.tenCo == 'Rias'
-  //       ketQua['King'] = timCoCuaAiDo[2]
-  //       ketQua['Queen'] = timCoCuaAiDo[0]
-  //       ketQua['Pawn'] = timCoCuaAiDo[1]
-  //       res.json(ketQua)
-  //       console.log('đã gửi kết quả về bàn cờ Rias')
-  //     }
-  //   })
-  
-  // }
 
-  // else if(req.params.tenCo === 'Sona'){
-  //   peerageModel.find({$or:[{peerage: "Sona's King"}]}, function(err, timCoCuaAiDo){
-  //     if(err) {
-  //       console.log(err);
-  //     }
-  //     else{
-  //       console.log('đã tìm thấy ', timCoCuaAiDo);
-  //       console.log('Sona')
-  //       // req.params.tenCo == 'Sona'
-  //       ketQua['King'] = timCoCuaAiDo[0]
-  //       res.json(ketQua)
-  //       console.log('đã gửi kết quả về bàn cờ Sona')
-        
-  //     }
-  //   })
-  // }
-
-  // else if(req.params.tenCo === 'Issei'){
-  //   peerageModel.find({$or:[{peerage: "Issei's King"}]}, function(err, timCoCuaAiDo){
-  //     if(err) {
-  //       console.log(err);
-  //     }
-  //     else{
-  //       console.log('đã tìm thấy ', timCoCuaAiDo);
-  //       console.log('Issei')
-  //       // req.params.tenCo == 'Issei'
-  //       ketQua['King'] = timCoCuaAiDo[0]
-  //       res.json(ketQua)
-  //       console.log('đã gửi kết quả về bàn cờ Issei ')
-        
-  //     }
-  //   })
-  // }
-
-  // else{
-  //   console.log('Không có bàn cờ')
-  //   res.json('Không có bàn cờ tên là ' + req.params.tenCo)
-  // }
-
-  
-
-
-
-
-  // var ketQua = {}
-
-  // ketQua['King'] = 'Rias'
-
-  // ketQua['King'] = 'King: Rias, Gender là Female'
-  // ketQua['Queen'] = 'Queen: Rias, Gender là Female'
-  // ketQua['Pawn'] = 'Pawn: Issei, Gender là Male'
-
-  // ketQua['King'] = {peerage: "Rias's King"}
-  // ketQua['Queen'] = {peerage: "Rias's Queen"}
-  // ketQua['Pawn'] = {peerage: "Rias's Pawn x4"}
-
-  // ketQua['King'] = {name: 'Rias', gender: 'Female', image: 'https://static.wikia.nocookie.net/highschooldxd/images/6/6c/Riasg.jpg'}
-  // ketQua['Queen'] = {name: 'Akeno', gender: 'Female', image: 'https://static.wikia.nocookie.net/highschooldxd/images/b/bd/Himejima_Akeno.jpg'}
-  // ketQua['Pawn'] = {name: 'Issei', gender: 'Male', image: 'https://static.wikia.nocookie.net/highschooldxd/images/2/2f/Issei.jpg'}
-  
-  // ketQua['King'] = {name: Family_Peerage, gender: , image: }
-  // ketQua['Queen'] = {name: , gender: , image: }
-  // ketQua['Pawn'] = {name: , gender: , image: }
-
-  // ketQua['Bishop'] = 'đây là tượng'
-  // ketQua['Knight'] = 'đây là mã'
-  // ketQua['Rook'] = 'đây là xe'
-
-  // res.json(ketQua)
 
 
 })
-
-
-
-
-

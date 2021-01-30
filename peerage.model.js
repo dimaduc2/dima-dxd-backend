@@ -4,14 +4,11 @@ const Schema = mongoose.Schema;
 let PeerageModel = new Schema(
   {
     name: String,
-    gender: String,
-    love: [String],
-    original: String,
-    power: [String],
-    peerage: [String],
-    image: String
-  }, 
-  { collection: 'Family_Peerage'}           //tên của collection trong MongoDB
+    image: String,
+    nameColor: String,
+    imageColor: String,
+  },
+  {collection: 'Peerage'}
 );
-PeerageModel.index({name:'text', gender:'text', original:'text', peerage:'text'})
-module.exports = mongoose.model('Family_Peerage', PeerageModel);
+PeerageModel.index({name:'text', image:'text', nameColor:'text', imageColor:'text'})
+module.exports = mongoose.model('Peerage', PeerageModel);
